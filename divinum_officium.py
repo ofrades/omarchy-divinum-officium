@@ -165,6 +165,16 @@ RE_VERSE = re.compile(
     r"^\s*<FONT\b[^>]*SIZE=['\"]?1['\"]?[^>]*>(.*?)</FONT>(.*)$", re.S | re.I
 )
 
+# The missal prints a green part number top-right in the cell it introduces,
+# and both books carry their own in-page jumps ("Top", "Next"). Neither is text
+# of the office; the popup links (a rubric's cross-reference) keep their words.
+RE_PART_NUMBER = re.compile(
+    r"<DIV\b[^>]*ALIGN=['\"]?RIGHT['\"]?[^>]*>.*?</DIV>", re.S | re.I
+)
+RE_PAGE_JUMP = re.compile(
+    r"<A\b[^>]*HREF=['\"]?#(?:top|\d+)['\"]?[^>]*>.*?</A>", re.S | re.I
+)
+
 # Short italic signposts that stand on their own: "Ant.", "Psalmus 53", "℣.".
 MARKERS = {
     "ant.",
@@ -275,6 +285,8 @@ def classify_line(segment: str) -> dict | None:
 
 def parse_cell(cell: str) -> dict:
     """Parse one language cell: its label, its note, and the lines beneath."""
+    cell = RE_PART_NUMBER.sub("", cell)
+    cell = RE_PAGE_JUMP.sub("", cell)
     label = ""
     note = ""
     match = RE_LABEL.search(cell)

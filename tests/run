@@ -93,48 +93,64 @@ if command -v node >/dev/null 2>&1; then
   echo "== Model.js =="
   node -e "
 const M = require('./Model.js');
+// Node's console.assert only prints; these tests have to fail the run.
+function check(ok, label) {
+  if (!ok) throw new Error('Model.js: ' + label)
+}
 const s = M.parseSchedule(M.DEFAULT_SCHEDULE);
-console.assert(s.length === 8 && s[0] === 0, 'schedule parse');
-console.assert(M.hourForMinutes(s, 0).key === 'Matutinum', 'matins owns midnight');
-console.assert(M.hourForMinutes(s, 375).key === 'Laudes', 'lauds window');
-console.assert(M.hourForMinutes(s, 1439).key === 'Completorium', 'compline owns the night');
-console.assert(M.minutesToNextHour(s, 435) === 15, 'minutes to next hour');
-console.assert(M.nextHourForMinutes(s, 1290).key === 'Matutinum', 'compline wraps to matins');
-console.assert(M.formatDuration(130) === '2h 10m', 'duration');
-console.assert(M.parseSchedule('rubbish').join() === s.join(), 'bad schedule falls back');
-console.assert(M.parseSchedule('06:00,00:00,07:30,09:00,12:00,15:00,18:00,21:00').join() === s.join(), 'out-of-order schedule falls back');
-console.assert(M.dateKey(new Date(2026, 8, 23)) === '2026-09-23', 'dateKey');
-console.assert(M.shiftDateKey('2026-09-30', 1) === '2026-10-01', 'shift across month');
-console.assert(M.shiftDateKey('2026-01-01', -1) === '2025-12-31', 'shift across year');
-console.assert(M.longDate('2026-09-23') === 'Wednesday, 23 September 2026', 'long date');
-console.assert(M.colorSpec('black').name === 'White', 'DO black is the white class');
-console.assert(M.colorSpec('grey').name === 'Black', 'DO grey is black');
+check(s.length === 8 && s[0] === 0, 'schedule parse');
+check(M.hourForMinutes(s, 0).key === 'Matutinum', 'matins owns midnight');
+check(M.hourForMinutes(s, 375).key === 'Laudes', 'lauds window');
+check(M.hourForMinutes(s, 1439).key === 'Completorium', 'compline owns the night');
+check(M.minutesToNextHour(s, 435) === 15, 'minutes to next hour');
+check(M.nextHourForMinutes(s, 1290).key === 'Matutinum', 'compline wraps to matins');
+check(M.formatDuration(130) === '2h 10m', 'duration');
+check(M.parseSchedule('rubbish').join() === s.join(), 'bad schedule falls back');
+check(M.parseSchedule('06:00,00:00,07:30,09:00,12:00,15:00,18:00,21:00').join() === s.join(), 'out-of-order schedule falls back');
+check(M.dateKey(new Date(2026, 8, 23)) === '2026-09-23', 'dateKey');
+check(M.shiftDateKey('2026-09-30', 1) === '2026-10-01', 'shift across month');
+check(M.shiftDateKey('2026-01-01', -1) === '2025-12-31', 'shift across year');
+check(M.longDate('2026-09-23') === 'Wednesday, 23 September 2026', 'long date');
+check(M.colorSpec('black').name === 'White', 'DO black is the white class');
+check(M.colorSpec('grey').name === 'Black', 'DO grey is black');
 const rt = M.richText([
   { k: 'rubric', marker: '℣.', text: 'Deus in adiutórium' },
   { k: 'verse', marker: '53:3', text: 'Deus, in nómine tuo <salvum>' },
   { k: 'text', text: 'Glória Patri & Fílio' }
 ], { rubric: '#ff0000', verse: '#888888' });
-console.assert(rt.indexOf('<font color=\"#ff0000\">℣.</font>') === 0, 'rubric render');
-console.assert(rt.indexOf('&lt;salvum&gt;') > 0, 'escaping');
-console.assert(M.richText([{ k: 'verse', marker: '1:1', text: 'x' }], { verse: '#888', hideVerseNumbers: true }) === 'x', 'hide verses');
+check(rt.indexOf('<font color=\"#ff0000\">℣.</font>') === 0, 'rubric render');
+check(rt.indexOf('&lt;salvum&gt;') > 0, 'escaping');
+check(M.richText([{ k: 'verse', marker: '1:1', text: 'x' }], { verse: '#888', hideVerseNumbers: true }) === 'x', 'hide verses');
 const sec = { columns: [{ label: '', note: '', lines: [] }, { label: 'Psalms', note: '{n}', lines: [{ k: 'text', text: 'x' }] }] };
-console.assert(M.sectionLabel(sec) === 'Psalms', 'label falls through columns');
-console.assert(M.sectionNote(sec) === '{n}', 'note');
-console.assert(M.parseOffice('') === null, 'empty output');
-console.assert(M.parseOffice('{nope').ok === false, 'bad json');
+check(M.sectionLabel(sec) === 'Psalms', 'label falls through columns');
+check(M.sectionNote(sec) === '{n}', 'note');
+check(M.parseOffice('') === null, 'empty output');
+check(M.parseOffice('{nope').ok === false, 'bad json');
 const cmd = M.riteCommand('/p/x.py', { rite: 'office', date: '2026-09-23', hour: 'Prima', baseUrl: 'https://d', version: 'V', lang1: 'Latin', lang2: 'English', ttl: 3600, refresh: true });
-console.assert(cmd[0] === 'python3' && cmd[2] === 'office', 'office subcommand');
-console.assert(cmd.indexOf('--hour') > 0 && cmd.indexOf('--votive') < 0, 'office asks for an hour only');
-console.assert(cmd[cmd.length - 1] === '--refresh', 'office refresh flag');
+check(cmd[0] === 'python3' && cmd[2] === 'office', 'office subcommand');
+check(cmd.indexOf('--hour') > 0 && cmd.indexOf('--votive') < 0, 'office asks for an hour only');
+check(cmd[cmd.length - 1] === '--refresh', 'office refresh flag');
 const mass = M.riteCommand('/p/x.py', { rite: 'mass', date: '2026-09-23', votive: 'C9', propersOnly: true, baseUrl: 'https://d', version: 'V', lang1: 'Latin', lang2: 'English', ttl: 3600 });
-console.assert(mass[2] === 'mass' && mass.indexOf('--hour') < 0, 'mass subcommand');
-console.assert(mass[mass.indexOf('--votive') + 1] === 'C9', 'votive code');
-console.assert(mass.indexOf('--propers') > 0, 'propers only flag');
+check(mass[2] === 'mass' && mass.indexOf('--hour') < 0, 'mass subcommand');
+check(mass[mass.indexOf('--votive') + 1] === 'C9', 'votive code');
+check(mass.indexOf('--propers') > 0, 'propers only flag');
 const full = M.riteCommand('/p/x.py', { rite: 'mass', date: '2026-09-23', votive: 'Hodie', propersOnly: false, baseUrl: 'https://d', version: 'V', lang1: 'Latin', lang2: 'English', ttl: 3600 });
-console.assert(full.indexOf('--propers') < 0, 'full Mass keeps the Ordinary');
-console.assert(M.RITES.length === 2 && M.MASS_FORMS.length === 2 && M.VOTIVES.length >= 10, 'rite vocabulary');
-console.assert(M.VOTIVES[0].value === 'Hodie', 'Hodie is the Mass of the day');
-console.assert(M.hourLabel('Vesperae') === 'Vesperae' && M.hourLabel('Vesperae', 'english') === 'Vespers', 'hour labels');
+check(full.indexOf('--propers') < 0, 'full Mass keeps the Ordinary');
+check(M.RITES.length === 2 && M.MASS_FORMS.length === 2 && M.VOTIVES.length >= 10, 'rite vocabulary');
+check(M.VOTIVES[0].value === 'Hodie', 'Hodie is the Mass of the day');
+// The bar names the day's Mass: the rank the server appends is dropped and the
+// name is elided at a word boundary.
+check(M.shortTitle('Feria Quarta Quattuor Temporum Septembris ~ II. classis') === 'Feria Quarta Quattuor Temporum…', 'rank dropped');
+check(M.shortTitle('In Nativitate Domini ~ I. classis', 20) === 'In Nativitate Domini', 'fits, no elide');
+check(M.shortTitle('Missa Defunctorum quotidianis: Requiem aeternam') === 'Missa Defunctorum quotidianis…', 'votive title');
+check(M.shortTitle('Missa Defunctorum quotidianis: Requiem aeternam', 20) === 'Missa Defunctorum…', 'votive title, tight');
+check(M.shortTitle('Easter', 12) === 'Easter', 'short stays short');
+check(M.shortTitle('') === '', 'empty title');
+const keyOne = M.massKey({ baseUrl: 'https://d', version: 'V', lang1: 'Latin', lang2: 'English', date: '2026-09-23', votive: 'Hodie', propers: true });
+const keyTwo = M.massKey({ baseUrl: 'https://d', version: 'V', lang1: 'Latin', lang2: 'English', date: '2026-09-23', votive: 'C9', propers: true });
+check(keyOne !== keyTwo, 'a votive changes the Mass key');
+check(keyOne === M.massKey({ baseUrl: 'https://d', version: 'V', lang1: 'Latin', lang2: 'English', date: '2026-09-23', votive: 'Hodie', propers: true }), 'key is stable');
+check(M.hourLabel('Vesperae') === 'Vesperae' && M.hourLabel('Vesperae', 'english') === 'Vespers', 'hour labels');
 console.log('Model.js OK');
 "
 else

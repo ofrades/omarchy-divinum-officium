@@ -310,6 +310,35 @@ function elide(text, limit) {
   return value.slice(0, Math.max(0, max - 1)) + "…"
 }
 
+// The day title arrives with the rank the server appends ("~ II. classis").
+// The bar wants the name of the day, not its rank, and wants it to fit.
+function shortTitle(title, limit) {
+  var text = String(title === undefined || title === null ? "" : title)
+  var rank = text.indexOf(" ~ ")
+  if (rank > 0) text = text.slice(0, rank)
+  text = text.replace(/\s+/g, " ").trim()
+  var max = limit === undefined || limit < 8 ? 34 : limit
+  if (text.length <= max) return text
+  var clipped = text.slice(0, max)
+  var space = clipped.lastIndexOf(" ")
+  if (space > max * 0.6) clipped = clipped.slice(0, space)
+  return clipped.replace(/[\s.,;:]+$/, "") + "…"
+}
+
+// One identity for one Mass request, so the panel can tell whether the payload
+// it holds is still the one the settings ask for.
+function massKey(options) {
+  return [
+    String(options.baseUrl === undefined ? "" : options.baseUrl),
+    String(options.version === undefined ? "" : options.version),
+    String(options.lang1 === undefined ? "" : options.lang1),
+    String(options.lang2 === undefined ? "" : options.lang2),
+    String(options.date === undefined ? "" : options.date),
+    String(options.votive === undefined ? "" : options.votive),
+    options.propers === true ? "1" : "0"
+  ].join("|")
+}
+
 // The argv for the helper, kept here so the shell wiring and the tests agree on
 // one command shape. The office asks for an hour; the Mass asks for a votive
 // form and whether to leave the Ordinary out.
@@ -366,6 +395,8 @@ if (typeof module !== "undefined") {
     lineCount: lineCount,
     parseOffice: parseOffice,
     elide: elide,
+    shortTitle: shortTitle,
+    massKey: massKey,
     riteCommand: riteCommand
   }
 }

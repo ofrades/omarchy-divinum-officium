@@ -20,22 +20,50 @@ BarWidget {
   readonly property string hourKey: panelItem ? panelItem.hour : ""
   readonly property string dayTitle: panelItem ? panelItem.dayTitle : ""
   readonly property string colorKey: panelItem ? panelItem.colorKey : ""
+  readonly property string massTitleFull: panelItem ? panelItem.massTitle : ""
+  readonly property string massColorKey: panelItem ? panelItem.massColourKey : ""
   readonly property bool hasOffice: dayTitle !== ""
-  readonly property var colour: Model.colorSpec(colorKey)
   readonly property var settingsHour: panelItem ? panelItem.hourLabel : ""
+
+  // What the bar says: the hour being prayed, the Mass of the day, or both.
+  // "What Mass is today?" should be answerable without opening anything.
+  readonly property string barLabelMode: String(setting("barLabel", "Hour + Mass"))
+  readonly property int barTitleMaxChars: {
+    var value = parseInt(String(setting("barTitleMaxChars", 34)), 10)
+    if (!isFinite(value)) value = 34
+    if (value < 12) value = 12
+    if (value > 120) value = 120
+    return value
+  }
 
   // Latin is the breviary's own language, so the bar keeps the hour's Latin
   // name even when the panel is set to read in translation.
-  readonly property string displayText: settingsHour !== "" ? settingsHour : "Officium"
+  readonly property string hourText: settingsHour !== "" ? settingsHour : "Officium"
+  readonly property string massText: Model.shortTitle(massTitleFull, barTitleMaxChars)
+  readonly property bool massNamed: barLabelMode !== "Hour" && massText !== ""
+  readonly property string displayText: {
+    if (barLabelMode === "Hour") return hourText
+    if (barLabelMode === "Mass") return massText !== "" ? massText : hourText
+    return massText !== "" ? hourText + " · " + massText : hourText
+  }
   readonly property string shortText: {
     var index = Model.hourIndex(hourKey)
     return index < 0 ? "—" : Model.HOURS[index].abbrev
   }
   readonly property bool showDot: String(setting("showColourDot", "On")) !== "Off"
+  // The dot names the day. When the bar is naming the Mass, it takes the Mass's
+  // colour — a Requiem reads black even on a green feria.
+  readonly property var colour: Model.colorSpec(
+    root.massNamed && root.massColorKey !== "" ? root.massColorKey : root.colorKey)
 
-  readonly property string tooltipText: hasOffice
-    ? (dayTitle + "\n" + displayText + " · " + colour.name + "\nRight-click to refresh")
-    : "Divinum Officium"
+  readonly property string tooltipText: {
+    var lines = []
+    if (dayTitle !== "") lines.push(dayTitle)
+    if (massTitleFull !== "" && massTitleFull !== dayTitle) lines.push("Mass: " + massTitleFull)
+    lines.push(hourText + " · " + colour.name)
+    lines.push("Right-click to refresh")
+    return lines.join("\n")
+  }
 
   function refresh() {
     if (panelItem && panelItem.refresh) panelItem.refresh(true)

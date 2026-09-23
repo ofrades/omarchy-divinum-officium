@@ -43,6 +43,8 @@
       "rite": "Officium",
       "massForm": "Propers",
       "massVotive": "Hodie",
+      "barLabel": "Hour + Mass",
+      "barTitleMaxChars": 34,
       "refreshIntervalSec": 900,
       "cacheTtlMinutes": 360,
       "hourSchedule": "00:00,06:00,07:30,09:00,12:00,15:00,18:00,21:00",
@@ -182,8 +184,29 @@
         "description": "The Mass of the day, or a votive Mass from the missal's list: C9 Requiem, C11 B.V.M., C2 Martyr Pontiff, C4 Confessor Pontiff, C5 Confessor, C6 Virgin Martyr, C8 Dedication, V4 St Joseph, V6 the Passion, Coronatio for the Pope, Propaganda for the spread of the faith."
       },
       {
-        "key": "hourSchedule",
-        "type": "string",
+        "key": "barLabel",
+        "type": "enum",
+        "label": "Bar label",
+        "options": [
+          "Hour + Mass",
+          "Hour",
+          "Mass"
+        ],
+        "defaultValue": "Hour + Mass",
+        "description": "What the bar says: the hour being prayed, the Mass of the day, or both."
+      },
+      {
+        "key": "barTitleMaxChars",
+        "type": "integer",
+        "label": "Bar title length",
+        "min": 12,
+        "max": 120,
+        "step": 2,
+        "defaultValue": 34,
+        "description": "How many characters of the Mass's name to show in the bar before eliding at a word boundary. The rank (\"~ II. classis\") is always dropped."
+      },
+      {
+        "key": "hourSchedule",        "type": "string",
         "label": "Hour start times",
         "defaultValue": "00:00,06:00,07:30,09:00,12:00,15:00,18:00,21:00",
         "description": "Eight 24-hour clock times, one per hour from Matins to Compline. They decide which hour the bar shows as current."

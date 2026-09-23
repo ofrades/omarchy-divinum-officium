@@ -76,6 +76,24 @@ Panel {
   property bool pendingRefresh: false
   property bool pendingForce: false
 
+  // The day's Mass is fetched whatever book the panel is reading, because the
+  // bar names it: "what Mass is today?" should not need the panel opened.
+  property var massPayload: null
+  property bool massPending: false
+  property bool massPendingForce: false
+  property string massLoadedKey: ""
+  readonly property string massRequestKey: Model.massKey({
+    baseUrl: root.sourceUrl,
+    version: root.versionText,
+    lang1: root.language,
+    lang2: root.language2 === "" ? root.language : root.language2,
+    date: root.dateKey,
+    votive: root.massVotive,
+    propers: true
+  })
+  readonly property string massTitle: massPayload && massPayload.title ? String(massPayload.title) : ""
+  readonly property string massColourKey: massPayload && massPayload.colorKey ? String(massPayload.colorKey) : ""
+
   readonly property string dayTitle: office && office.title ? String(office.title) : ""
   readonly property string colorKey: office && office.colorKey ? String(office.colorKey) : ""
   readonly property var colour: Model.colorSpec(colorKey)
@@ -119,6 +137,7 @@ Panel {
   function refresh(force) {
     if (force === true) {
       startFetch(true)
+      startMassFetch(true)
       return
     }
     refreshDebounce.restart()
@@ -161,6 +180,47 @@ Panel {
     root.stale = parsed.stale === true
     root.fetchError = parsed.error ? Model.elide(String(parsed.error), 200) : ""
     root.loading = false
+    // A propers Mass read in the panel is the same text the bar wants, so it
+    // doubles as the day's Mass instead of asking the server twice.
+    if (parsed.rite === "mass" && parsed.propers === true) {
+      root.massPayload = parsed
+      root.massLoadedKey = Model.massKey(parsed)
+    }
+  }
+
+  function applyMassStatus(raw) {
+    var parsed = Model.parseOffice(raw)
+    if (!parsed || parsed.ok !== true) return
+    root.massPayload = parsed
+    root.massLoadedKey = Model.massKey(parsed)
+  }
+
+  // Kept out of the panel's own fetch so switching books never blanks the bar's
+  // Mass, and so a votive chosen months ago does not ride along silently.
+  function refreshMass() {
+    massDebounce.restart()
+  }
+
+  function startMassFetch(force) {
+    if (force !== true && root.massLoadedKey !== "" && root.massLoadedKey === root.massRequestKey) return
+    if (massProcess.running) {
+      root.massPending = true
+      if (force === true) root.massPendingForce = true
+      return
+    }
+    massProcess.command = Model.riteCommand(root.helperPath, {
+      rite: "mass",
+      date: root.dateKey,
+      votive: root.massVotive,
+      propersOnly: true,
+      baseUrl: root.sourceUrl,
+      version: root.versionText,
+      lang1: root.language,
+      lang2: root.language2 === "" ? root.language : root.language2,
+      ttl: root.cacheTtlSec,
+      refresh: force === true
+    })
+    massProcess.running = true
   }
 
   // Changing a setting from the panel writes it back to shell.json, the same
@@ -258,6 +318,11 @@ Panel {
 
   onRequestSignatureChanged: root.refresh(false)
 
+  // The bar names the day's Mass, so the Mass follows the date and the settings
+  // the same way the office does — but on its own process, so switching books
+  // never blanks it.
+  onMassRequestKeyChanged: root.refreshMass()
+
   function setRite(name) {
     var wanted = String(name).toLowerCase()
     var value = wanted === "mass" || wanted === "missa" ? "Missa" : "Officium"
@@ -296,6 +361,7 @@ Panel {
   Component.onCompleted: {
     root.updateNow()
     root.refresh(false)
+    root.refreshMass()
   }
 
   Timer {
@@ -303,6 +369,33 @@ Panel {
     interval: 350
     repeat: false
     onTriggered: root.startFetch(false)
+  }
+
+  Timer {
+    id: massDebounce
+    interval: 600
+    repeat: false
+    onTriggered: root.startMassFetch(false)
+  }
+
+  Process {
+    id: massProcess
+    running: false
+    command: []
+    stdout: StdioCollector {
+      id: massStdout
+      waitForEnd: true
+      onStreamFinished: root.applyMassStatus(text)
+    }
+    stderr: StdioCollector { waitForEnd: true }
+    onExited: function(exitCode) {
+      if (root.massPending) {
+        var force = root.massPendingForce
+        root.massPending = false
+        root.massPendingForce = false
+        root.startMassFetch(force)
+      }
+    }
   }
 
   Timer {

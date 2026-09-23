@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+# Smoke tests for the omarchy-divinum-officium plugin. Offline by default:
+# the parser runs against tests/fixture-officium.html, and Model.js runs in
+# node. Nothing here talks to a Divinum Officium server.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+echo "== python syntax =="
+python3 -m py_compile divinum_officium.py
+echo OK
+
+echo "== parser (fixture) =="
+python3 - <<'PY'
+import importlib.util
+import json
+
+spec = importlib.util.spec_from_file_location("do", "divinum_officium.py")
+do = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(do)
+
+document = open("tests/fixture-officium.html", encoding="utf-8").read()
+payload = do.parse_payload(document, {
+    "baseUrl": "https://example.invalid",
+    "date": "2026-09-23",
+    "hour": "Prima",
+    "version": "Rubrics 1960 - 1960",
+    "lang1": "Latin",
+    "lang2": "English",
+})
+
+assert payload["ok"] is True
+assert payload["title"] == "Feria Quarta Quattuor Temporum Septembris ~ II. classis", payload["title"]
+assert payload["colorKey"] == "purple", payload["colorKey"]
+assert payload["colorName"] == "Violet", payload["colorName"]
+assert payload["hourTitle"] == "Ad Primam", payload["hourTitle"]
+assert payload["commemorations"] == ["Commemoratio ad Laudes tantum: S. Lini Papae et Martyris"], payload["commemorations"]
+assert payload["sectionCount"] == 2, payload["sectionCount"]
+
+first = payload["sections"][0]["columns"]
+assert [len(column) for column in first] == [3, 3], first
+assert first[0]["label"] == "Incipit" and first[1]["label"] == "Start"
+
+lines = payload["sections"][1]["columns"][0]["lines"]
+kinds = [line["k"] for line in lines]
+assert kinds == ["rubric", "title", "verse"], kinds
+assert lines[0]["marker"] == "Ant." and lines[0]["text"].startswith("Quem vidístis"), lines[0]
+assert lines[1]["text"] == "Psalmus 53" and lines[1]["after"] == "[1]", lines[1]
+assert lines[2]["marker"] == "53:3" and lines[2]["text"].startswith("Deus, in nómine"), lines[2]
+assert payload["sections"][1]["columns"][0]["note"] == "Psalmi Dominica & antiphonae ex Proprio Sanctorum", payload["sections"][1]["columns"][0]["note"]
+
+# A page without the body wrapper, as content=1 serves it.
+partial = do.parse_payload(document[document.index("<P ALIGN"):], {"date": "2026-09-23"})
+assert partial["title"].startswith("Feria Quarta"), partial["title"]
+
+# A page with a black (white/ferial) headline: setfont omits COLOR for it.
+black = document.replace('COLOR="purple"', "")
+assert do.parse_payload(black, {})["colorName"] == "White"
+
+# Date format round trip.
+assert do.iso_to_do_date("2026-09-23") == "09-23-2026"
+assert do.relative_date("today") != "today"
+print("sections:", payload["sectionCount"], "| colour:", payload["colorName"], "| commemorations:", len(payload["commemorations"]))
+PY
+echo OK
+
+echo "== helper cli =="
+python3 divinum_officium.py cache-path | grep -q "divinum-officium" && echo OK
+
+if command -v node >/dev/null 2>&1; then
+  echo "== Model.js =="
+  node -e "
+const M = require('./Model.js');
+const s = M.parseSchedule(M.DEFAULT_SCHEDULE);
+console.assert(s.length === 8 && s[0] === 0, 'schedule parse');
+console.assert(M.hourForMinutes(s, 0).key === 'Matutinum', 'matins owns midnight');
+console.assert(M.hourForMinutes(s, 375).key === 'Laudes', 'lauds window');
+console.assert(M.hourForMinutes(s, 1439).key === 'Completorium', 'compline owns the night');
+console.assert(M.minutesToNextHour(s, 435) === 15, 'minutes to next hour');
+console.assert(M.nextHourForMinutes(s, 1290).key === 'Matutinum', 'compline wraps to matins');
+console.assert(M.formatDuration(130) === '2h 10m', 'duration');
+console.assert(M.parseSchedule('rubbish').join() === s.join(), 'bad schedule falls back');
+console.assert(M.parseSchedule('06:00,00:00,07:30,09:00,12:00,15:00,18:00,21:00').join() === s.join(), 'out-of-order schedule falls back');
+console.assert(M.dateKey(new Date(2026, 8, 23)) === '2026-09-23', 'dateKey');
+console.assert(M.shiftDateKey('2026-09-30', 1) === '2026-10-01', 'shift across month');
+console.assert(M.shiftDateKey('2026-01-01', -1) === '2025-12-31', 'shift across year');
+console.assert(M.longDate('2026-09-23') === 'Wednesday, 23 September 2026', 'long date');
+console.assert(M.colorSpec('black').name === 'White', 'DO black is the white class');
+console.assert(M.colorSpec('grey').name === 'Black', 'DO grey is black');
+const rt = M.richText([
+  { k: 'rubric', marker: '℣.', text: 'Deus in adiutórium' },
+  { k: 'verse', marker: '53:3', text: 'Deus, in nómine tuo <salvum>' },
+  { k: 'text', text: 'Glória Patri & Fílio' }
+], { rubric: '#ff0000', verse: '#888888' });
+console.assert(rt.indexOf('<font color=\"#ff0000\">℣.</font>') === 0, 'rubric render');
+console.assert(rt.indexOf('&lt;salvum&gt;') > 0, 'escaping');
+console.assert(M.richText([{ k: 'verse', marker: '1:1', text: 'x' }], { verse: '#888', hideVerseNumbers: true }) === 'x', 'hide verses');
+const sec = { columns: [{ label: '', note: '', lines: [] }, { label: 'Psalms', note: '{n}', lines: [{ k: 'text', text: 'x' }] }] };
+console.assert(M.sectionLabel(sec) === 'Psalms', 'label falls through columns');
+console.assert(M.sectionNote(sec) === '{n}', 'note');
+console.assert(M.parseOffice('') === null, 'empty output');
+console.assert(M.parseOffice('{nope').ok === false, 'bad json');
+const cmd = M.officeCommand('/p/x.py', { date: '2026-09-23', hour: 'Prima', baseUrl: 'https://d', version: 'V', lang1: 'Latin', lang2: 'English', ttl: 3600, refresh: true });
+console.assert(cmd[0] === 'python3' && cmd[cmd.length - 1] === '--refresh' && cmd.indexOf('--hour') > 0, 'command shape');
+console.assert(M.hourLabel('Vesperae') === 'Vesperae' && M.hourLabel('Vesperae', 'english') === 'Vespers', 'hour labels');
+console.log('Model.js OK');
+"
+else
+  echo "(node missing, skipping Model.js tests)"
+fi
+
+if command -v omarchy >/dev/null 2>&1; then
+  echo "== omarchy plugin validate =="
+  omarchy plugin validate .
+  echo OK
+else
+  echo "(omarchy missing, skipping validate)"
+fi
+
+echo "== QML guards =="
+# No optional-chaining / nullish-coalescing: not guaranteed in the QML engine.
+if grep -n "?\.\|??" BarWidget.qml Panel.qml OfficeSection.qml Model.js; then
+  echo "FAIL: unsupported JS syntax found" >&2
+  exit 1
+fi
+echo OK
+
+echo "ALL GREEN"

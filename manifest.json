@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.ofrades.divinum-officium",
+  "name": "Divinum Officium",
+  "version": "0.1.0",
+  "author": "ofrades",
+  "license": "MIT",
+  "description": "The traditional Roman Breviary in the bar: the canonical hour for now, the liturgical colour of the day, and the full office text.",
+  "homepage": "https://github.com/ofrades/omarchy-divinum-officium",
+  "repository": "https://github.com/ofrades/omarchy-divinum-officium",
+  "keywords": [
+    "breviary",
+    "divinum-officium",
+    "liturgy",
+    "prayer",
+    "breviarium",
+    "hours"
+  ],
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Divinum Officium",
+    "description": "Canonical hour, liturgical colour, and the full office text from a Divinum Officium server.",
+    "category": "Spirituality",
+    "aliases": [
+      "breviary",
+      "officium",
+      "breviarium",
+      "hours",
+      "divinum"
+    ],
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "sourceUrl": "https://divinumofficium.hu",
+      "version": "Rubrics 1960 - 1960",
+      "language": "Latin",
+      "language2": "English",
+      "refreshIntervalSec": 900,
+      "cacheTtlMinutes": 360,
+      "hourSchedule": "00:00,06:00,07:30,09:00,12:00,15:00,18:00,21:00",
+      "hideVerseNumbers": "Off",
+      "showColourDot": "On"
+    },
+    "schema": [
+      {
+        "key": "sourceUrl",
+        "type": "string",
+        "label": "Divinum Officium server",
+        "defaultValue": "https://divinumofficium.hu",
+        "description": "A Divinum Officium instance to read from. The official site disallows automated access to its CGI, so the public Hungarian mirror is the default. Point this at a local container to go fully offline."
+      },
+      {
+        "key": "version",
+        "type": "enum",
+        "label": "Rubrics",
+        "options": [
+          "Rubrics 1960 - 1960",
+          "Rubrics 1960 - 2020 USA",
+          "Reduced - 1955",
+          "Divino Afflatu - 1954",
+          "Divino Afflatu - 1939",
+          "Tridentine - 1906",
+          "Tridentine - 1888",
+          "Tridentine - 1570",
+          "Monastic - 1963",
+          "Monastic - 1963 - Barroux",
+          "Monastic Divino 1930",
+          "Monastic Tridentinum 1617",
+          "Monastic Tridentinum Cisterciensis 1951",
+          "Monastic Tridentinum Cisterciensis Altovadensis",
+          "Ordo Praedicatorum - 1962"
+        ],
+        "defaultValue": "Rubrics 1960 - 1960",
+        "description": "Which historical edition of the breviary to pray."
+      },
+      {
+        "key": "language",
+        "type": "enum",
+        "label": "Text language",
+        "options": [
+          "Latin",
+          "English",
+          "Deutsch",
+          "Francais",
+          "Italiano",
+          "Espanol",
+          "Portugues",
+          "Polski",
+          "Magyar",
+          "Magyar-Kaldi",
+          "Nederlands",
+          "Dansk",
+          "Bohemice",
+          "Cesky-Schaller",
+          "Vietnamice",
+          "Hebrew",
+          "Latin-Bea",
+          "Latin-gabc",
+          "Polski-Newer"
+        ],
+        "defaultValue": "Latin",
+        "description": "The left column, and the language used when only one is shown."
+      },
+      {
+        "key": "language2",
+        "type": "enum",
+        "label": "Second language",
+        "options": [
+          "English",
+          "Latin",
+          "Deutsch",
+          "Francais",
+          "Italiano",
+          "Espanol",
+          "Portugues",
+          "Polski",
+          "Magyar",
+          "Magyar-Kaldi",
+          "Nederlands",
+          "Dansk",
+          "Bohemice",
+          "Cesky-Schaller",
+          "Vietnamice",
+          "Hebrew",
+          "Latin-Bea",
+          "Latin-gabc",
+          "Polski-Newer",
+          "None"
+        ],
+        "defaultValue": "English",
+        "description": "The right column. Choose None, or the same language as the left column, for a single-column office."
+      },
+      {
+        "key": "hourSchedule",
+        "type": "string",
+        "label": "Hour start times",
+        "defaultValue": "00:00,06:00,07:30,09:00,12:00,15:00,18:00,21:00",
+        "description": "Eight 24-hour clock times, one per hour from Matins to Compline. They decide which hour the bar shows as current."
+      },
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "min": 60,
+        "max": 86400,
+        "step": 60,
+        "defaultValue": 900
+      },
+      {
+        "key": "cacheTtlMinutes",
+        "type": "integer",
+        "label": "Cache lifetime (minutes)",
+        "min": 0,
+        "max": 10080,
+        "step": 30,
+        "defaultValue": 360
+      },
+      {
+        "key": "hideVerseNumbers",
+        "type": "enum",
+        "label": "Verse numbers",
+        "options": [
+          "Off",
+          "On"
+        ],
+        "defaultValue": "Off",
+        "description": "Hide the small verse numbers a psalm is pointed by. The asterisks that mark the mediant stay."
+      },
+      {
+        "key": "showColourDot",
+        "type": "enum",
+        "label": "Liturgical colour dot",
+        "options": [
+          "On",
+          "Off"
+        ],
+        "defaultValue": "On",
+        "description": "Show the colour of the day beside the hour in the bar."
+      }
+    ]
+  }
+}

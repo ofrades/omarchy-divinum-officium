@@ -37,7 +37,8 @@ Panel {
     return value === "" ? "https://divinumofficium.hu" : value
   }
   readonly property string versionText: String(setting("version", "Rubrics 1960 - 1960"))
-  readonly property string language: String(setting("language", "Latin"))  readonly property string language2Raw: String(setting("language2", "English"))
+  readonly property string language: String(setting("language", "Latin"))
+  readonly property string language2Raw: String(setting("language2", "English"))
   // The server prints one column when both languages match, so "None" is just
   // that same request — the parser handles either shape.
   readonly property string language2: (language2Raw === "None" || language2Raw === language) ? "" : language2Raw

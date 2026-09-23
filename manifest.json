@@ -49,7 +49,8 @@
       "cacheTtlMinutes": 360,
       "hourSchedule": "00:00,06:00,07:30,09:00,12:00,15:00,18:00,21:00",
       "hideVerseNumbers": "Off",
-      "showColourDot": "On"
+      "showColourDot": "On",
+      "apiHours": "Prima,Tertia,Sexta,Nona"
     },
     "schema": [
       {
@@ -162,6 +163,13 @@
         "description": "Cloudflare Access service token secret, sent as CF-Access-Client-Secret."
       },
       {
+        "key": "apiHours",
+        "type": "string",
+        "label": "API hours",
+        "defaultValue": "Prima,Tertia,Sexta,Nona",
+        "description": "Which hours to read from Your own API. The others read from the mirror until the API's assembler covers them. Empty means every hour, and a failed API always falls back for that request."
+      },
+      {
         "key": "rite",
         "type": "enum",
         "label": "Open on",
@@ -227,7 +235,8 @@
         "description": "How many characters of the Mass's name to show in the bar before eliding at a word boundary. The rank (\"~ II. classis\") is always dropped."
       },
       {
-        "key": "hourSchedule",        "type": "string",
+        "key": "hourSchedule",
+        "type": "string",
         "label": "Hour start times",
         "defaultValue": "00:00,06:00,07:30,09:00,12:00,15:00,18:00,21:00",
         "description": "Eight 24-hour clock times, one per hour from Matins to Compline. They decide which hour the bar shows as current."

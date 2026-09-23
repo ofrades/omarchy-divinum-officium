@@ -46,6 +46,9 @@ Panel {
   // repository, running the engine in a Cloudflare Container behind Access.
   // When set, it replaces the public mirror and needs no crawl delay.
   readonly property string apiUrl: String(setting("apiUrl", "")).trim()
+  // The hours a private API serves well; the rest read from the mirror until
+  // the assembler covers them. Empty means every hour.
+  readonly property string apiHours: String(setting("apiHours", "Prima,Tertia,Sexta,Nona")).trim()
   readonly property string apiClientId: String(setting("apiServiceTokenId", "")).trim()
   readonly property string apiClientSecret: String(setting("apiServiceTokenSecret", ""))
   readonly property string effectiveBaseUrl: apiUrl !== "" ? apiUrl : sourceUrl
@@ -168,6 +171,7 @@ Panel {
       apiUrl: root.apiUrl,
       apiClientId: root.apiClientId,
       apiClientSecret: root.apiClientSecret,
+      apiHours: root.apiHours,
       version: root.versionText,
       lang1: root.language,
       lang2: root.language2 === "" ? root.language : root.language2,
@@ -323,6 +327,7 @@ Panel {
     root.effectiveBaseUrl,
     root.apiClientId,
     root.apiClientSecret,
+    root.apiHours,
     root.versionText,
     root.language,
     root.language2,

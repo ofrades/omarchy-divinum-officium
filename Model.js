@@ -363,6 +363,7 @@ function riteCommand(helperPath, options) {
     args.push("--api-url", String(options.apiUrl))
     if (options.apiClientId) args.push("--access-client-id", String(options.apiClientId))
     if (options.apiClientSecret) args.push("--access-client-secret", String(options.apiClientSecret))
+    if (options.apiHours) args.push("--api-hours", String(options.apiHours))
   }
   if (options.refresh === true) args.push("--refresh")
   return args

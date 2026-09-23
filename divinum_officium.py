@@ -371,6 +371,29 @@ def parse_payload(document: str, meta: dict) -> dict:
 # --------------------------------------------------------------------------- #
 
 
+def api_url_for(base_url: str, rite: str, date_iso: str, hour: str) -> str:
+    """The API's own route for a rite — it answers with the reader's payload."""
+    if rite == "mass":
+        return f"{base_url.rstrip('/')}/v1/mass/{date_iso}"
+    return f"{base_url.rstrip('/')}/v1/office/{date_iso}/{hour}"
+
+
+def fetch_api(url: str, params: dict, timeout: int = 45) -> dict:
+    """Ask the API for a payload; it is already in the reader's own shape."""
+    request = urllib.request.Request(
+        url + "?" + urllib.parse.urlencode(params),
+        headers={
+            "User-Agent": (
+                "omarchy-divinum-officium/" + VERSION + " "
+                "(+https://github.com/ofrades/omarchy-divinum-officium)"
+            ),
+            "Accept": "application/json",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return json.loads(response.read().decode("utf-8", errors="replace"))
+
+
 def rate_limit(cache: str) -> None:
     """Honour the mirrors' Crawl-delay: 10 between network requests."""
     stamp = os.path.join(cache, "last-fetch")
@@ -457,7 +480,12 @@ def office(args: argparse.Namespace) -> dict:
     # A private API answers the same CGI paths and takes Access service-token
     # headers; a public server takes neither.
     api_url = (getattr(args, "api_url", "") or "").strip()
-    base_url = api_url.rstrip("/") if api_url else args.base_url.rstrip("/")
+    # Which source this request will actually use decides the cache key too:
+    # asking the mirror for an hour the API does not cover must not look up (or
+    # write) the API's copy.
+    api_hours = [h.strip() for h in (getattr(args, "api_hours", "") or "").split(",") if h.strip()]
+    api_serves_hour = bool(api_url) and (not api_hours or rite == "mass" or getattr(args, "hour", "") in api_hours)
+    base_url = api_url.rstrip("/") if api_serves_hour else args.base_url.rstrip("/")
     api_headers = {}
     if api_url and getattr(args, "access_client_id", "") and getattr(args, "access_client_secret", ""):
         api_headers = {
@@ -487,6 +515,36 @@ def office(args: argparse.Namespace) -> dict:
             payload["stale"] = False
             return payload
 
+    # A private API answers JSON in the reader's own shape, so it is asked
+    # first; the mirror is the fallback when it is unreachable, unhappy, or
+    # simply does not cover this hour yet.
+    if api_serves_hour:
+        try:
+            payload = fetch_api(
+                api_url_for(base_url, rite, date_iso, meta["hour"]),
+                {
+                    "version": args.version,
+                    "lang1": args.lang1,
+                    "lang2": args.lang2,
+                },
+            )
+            if payload.get("ok") is True:
+                payload["cached"] = False
+                payload["stale"] = False
+                payload["source"] = api_url
+                try:
+                    with open(path, "w") as handle:
+                        json.dump({"fetchedAt": time.time(), "payload": payload}, handle)
+                except OSError:
+                    pass
+                return payload
+            api_error = str(payload.get("error", "the API did not have this hour"))
+        except Exception as error:  # urllib raises a family of errors here
+            api_error = f"{api_url} unreachable: {error}"
+        args_dict = {"apiError": api_error}
+    else:
+        args_dict = {}
+
     params = rite_params(rite, args, date_iso)
     try:
         document = fetch(
@@ -515,6 +573,8 @@ def office(args: argparse.Namespace) -> dict:
 
     payload = parse_payload(document, meta)
     payload["rite"] = rite
+    for key, value in args_dict.items():
+        payload[key] = value
     if not payload["hourTitle"]:
         payload["hourTitle"] = "Sancta Missa" if rite == "mass" else ""
     payload["cached"] = False
@@ -541,6 +601,7 @@ def add_source_args(parser: argparse.ArgumentParser, default_base: str) -> None:
     # A private Divinum Officium API of one's own, e.g. from a Cloudflare
     # Container: same CGI paths, Access service-token headers, no crawl delay.
     parser.add_argument("--api-url", default="")
+    parser.add_argument("--api-hours", default="", help="comma-separated hours the API serves well; empty means all")
     parser.add_argument("--access-client-id", default="")
     parser.add_argument("--access-client-secret", default="")
 

@@ -185,7 +185,13 @@ Point the reader at it with three settings:
 With `apiUrl` set, requests go there with `CF-Access-Client-Id` /
 `CF-Access-Client-Secret` headers and no crawl delay; the payloads are cached
 and keyed by source, so pointing back at a mirror (or clearing the settings)
-picks up the mirror's copies again. The credentials live in `shell.json`
+picks up the mirror's copies again. A failed API falls back to the mirror for
+that request.
+
+`apiHours` narrows which hours are read from the API — by default Prima,
+Tertia, Sexta and Nona, the four the assembler renders faithfully today. The
+others keep reading the mirror until their sections land, and the setting can
+be widened to every hour (or emptied, which means all of them) as they do. The credentials live in `shell.json`
 (mode 600) — `apiServiceTokenSecret` is a Cloudflare Access secret, revocable
 in Zero Trust without touching anything else.
 

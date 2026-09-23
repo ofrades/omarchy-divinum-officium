@@ -164,6 +164,31 @@ python3 divinum_officium.py cache-path     # where offices are cached
 python3 divinum_officium.py clear-cache    # forget every saved office
 ```
 
+## Your own API
+
+The mirror is a courtesy someone else runs. If you would rather own the API,
+the project's own repository ships one: `cloudflare/` in
+[ofrades/divinum-officium](https://github.com/ofrades/divinum-officium/tree/cloudflare-api/cloudflare)
+(Alchemy + Cloudflare) runs the engine in a Cloudflare Container and puts a
+Worker in front of it, gated by Cloudflare Access service tokens. Nothing is
+pre-generated and nothing is stored — every request is rendered by the engine
+from the texts in that repository.
+
+Point the reader at it with three settings:
+
+| Setting | Value |
+| --- | --- |
+| `apiUrl` | the `apiUrl` the deploy printed |
+| `apiServiceTokenId` | the `clientId` of the Access service token |
+| `apiServiceTokenSecret` | its `clientSecret` |
+
+With `apiUrl` set, requests go there with `CF-Access-Client-Id` /
+`CF-Access-Client-Secret` headers and no crawl delay; the payloads are cached
+and keyed by source, so pointing back at a mirror (or clearing the settings)
+picks up the mirror's copies again. The credentials live in `shell.json`
+(mode 600) — `apiServiceTokenSecret` is a Cloudflare Access secret, revocable
+in Zero Trust without touching anything else.
+
 ## Generating a dataset
 
 The reader asks a server for one hour at a time. If you would rather own the

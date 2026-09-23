@@ -141,6 +141,27 @@
         "description": "The right column. Choose None, or the same language as the left column, for a single-column office."
       },
       {
+        "key": "apiUrl",
+        "type": "string",
+        "label": "Your own API",
+        "defaultValue": "",
+        "description": "Optional. A private Divinum Officium API (see the project's cloudflare/ stack) to read instead of a public mirror. Answers the same paths, so nothing else changes."
+      },
+      {
+        "key": "apiServiceTokenId",
+        "type": "string",
+        "label": "API service token id",
+        "defaultValue": "",
+        "description": "Cloudflare Access service token id, sent as CF-Access-Client-Id. Only needed when Your own API is set."
+      },
+      {
+        "key": "apiServiceTokenSecret",
+        "type": "string",
+        "label": "API service token secret",
+        "defaultValue": "",
+        "description": "Cloudflare Access service token secret, sent as CF-Access-Client-Secret."
+      },
+      {
         "key": "rite",
         "type": "enum",
         "label": "Open on",

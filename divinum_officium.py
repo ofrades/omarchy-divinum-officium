@@ -386,20 +386,33 @@ def rate_limit(cache: str) -> None:
         handle.write(str(time.time()))
 
 
-def fetch(base_url: str, rite: str, params: dict, cache: str, timeout: int = 45) -> str:
+def fetch(
+    base_url: str,
+    rite: str,
+    params: dict,
+    cache: str,
+    timeout: int = 45,
+    headers: dict | None = None,
+    delay: bool = True,
+) -> str:
     url = base_url.rstrip("/") + RITES.get(rite, RITES["office"])
+    request_headers = {
+        "User-Agent": (
+            "omarchy-divinum-officium/" + VERSION + " "
+            "(+https://github.com/ofrades/omarchy-divinum-officium)"
+        ),
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en",
+    }
+    if headers:
+        request_headers.update(headers)
     request = urllib.request.Request(
-        url + "?" + urllib.parse.urlencode(params),
-        headers={
-            "User-Agent": (
-                "omarchy-divinum-officium/" + VERSION + " "
-                "(+https://github.com/ofrades/omarchy-divinum-officium)"
-            ),
-            "Accept": "text/html,application/xhtml+xml",
-            "Accept-Language": "en",
-        },
+        url + "?" + urllib.parse.urlencode(params), headers=request_headers
     )
-    rate_limit(cache)
+    # A private API of one's own is not a volunteer mirror: it needs no
+    # Crawl-delay, and its owner knows the traffic it gets.
+    if delay:
+        rate_limit(cache)
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return response.read().decode("utf-8", errors="replace")
 
@@ -440,8 +453,20 @@ def office(args: argparse.Namespace) -> dict:
     cache = cache_dir()
     date_iso = relative_date(args.date)
     rite = "mass" if args.command == "mass" else "office"
+
+    # A private API answers the same CGI paths and takes Access service-token
+    # headers; a public server takes neither.
+    api_url = (getattr(args, "api_url", "") or "").strip()
+    base_url = api_url.rstrip("/") if api_url else args.base_url.rstrip("/")
+    api_headers = {}
+    if api_url and getattr(args, "access_client_id", "") and getattr(args, "access_client_secret", ""):
+        api_headers = {
+            "CF-Access-Client-Id": args.access_client_id,
+            "CF-Access-Client-Secret": args.access_client_secret,
+        }
+
     meta = {
-        "baseUrl": args.base_url.rstrip("/"),
+        "baseUrl": base_url,
         "rite": rite,
         "date": date_iso,
         "hour": getattr(args, "hour", "") if rite == "office" else "",
@@ -464,7 +489,9 @@ def office(args: argparse.Namespace) -> dict:
 
     params = rite_params(rite, args, date_iso)
     try:
-        document = fetch(args.base_url, rite, params, cache)
+        document = fetch(
+            base_url, rite, params, cache, headers=api_headers, delay=not api_url
+        )
     except Exception as error:  # urllib raises a family of errors here
         payload, _ = read_cache(path, 0)
         if payload is not None:
@@ -473,14 +500,14 @@ def office(args: argparse.Namespace) -> dict:
                 {
                     "cached": True,
                     "stale": True,
-                    "error": f"{meta['baseUrl']} unreachable: {error}",
+                    "error": f"{base_url} unreachable: {error}",
                 }
             )
             return payload
         return {
             "ok": False,
-            "error": f"{meta['baseUrl']} unreachable: {error}",
-            "baseUrl": meta["baseUrl"],
+            "error": f"{base_url} unreachable: {error}",
+            "baseUrl": base_url,
             "rite": rite,
             "date": date_iso,
             "hour": meta["hour"],
@@ -503,6 +530,21 @@ def office(args: argparse.Namespace) -> dict:
     return payload
 
 
+def add_source_args(parser: argparse.ArgumentParser, default_base: str) -> None:
+    """The source options both rites share."""
+    parser.add_argument("--base-url", default=default_base)
+    parser.add_argument("--version", default="Rubrics 1960 - 1960")
+    parser.add_argument("--lang1", default="Latin")
+    parser.add_argument("--lang2", default="English")
+    parser.add_argument("--ttl", type=int, default=DEFAULT_TTL)
+    parser.add_argument("--refresh", action="store_true")
+    # A private Divinum Officium API of one's own, e.g. from a Cloudflare
+    # Container: same CGI paths, Access service-token headers, no crawl delay.
+    parser.add_argument("--api-url", default="")
+    parser.add_argument("--access-client-id", default="")
+    parser.add_argument("--access-client-secret", default="")
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description="Divinum Officium helper")
     parser.add_argument("--version-number", action="version", version=VERSION)
@@ -511,19 +553,10 @@ def main(argv: list[str]) -> int:
     office_parser = sub.add_parser("office", help="fetch one canonical hour")
     office_parser.add_argument("--date", default="today")
     office_parser.add_argument("--hour", default="Prima", choices=HOURS)
-    office_parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
-    office_parser.add_argument("--version", default="Rubrics 1960 - 1960")
-    office_parser.add_argument("--lang1", default="Latin")
-    office_parser.add_argument("--lang2", default="English")
-    office_parser.add_argument("--ttl", type=int, default=DEFAULT_TTL)
-    office_parser.add_argument("--refresh", action="store_true")
+    add_source_args(office_parser, DEFAULT_BASE_URL)
 
     mass_parser = sub.add_parser("mass", help="fetch the Mass of a day")
     mass_parser.add_argument("--date", default="today")
-    mass_parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
-    mass_parser.add_argument("--version", default="Rubrics 1960 - 1960")
-    mass_parser.add_argument("--lang1", default="Latin")
-    mass_parser.add_argument("--lang2", default="English")
     mass_parser.add_argument(
         "--votive",
         default="Hodie",
@@ -534,8 +567,7 @@ def main(argv: list[str]) -> int:
         action="store_true",
         help="propers only: leaves out the Ordinary",
     )
-    mass_parser.add_argument("--ttl", type=int, default=DEFAULT_TTL)
-    mass_parser.add_argument("--refresh", action="store_true")
+    add_source_args(mass_parser, DEFAULT_BASE_URL)
 
     sub.add_parser("clear-cache", help="remove every cached office")
     sub.add_parser("cache-path", help="print the cache directory")

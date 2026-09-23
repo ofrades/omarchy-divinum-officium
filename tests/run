@@ -163,6 +163,12 @@ check(mass[mass.indexOf('--votive') + 1] === 'C9', 'votive code');
 check(mass.indexOf('--propers') > 0, 'propers only flag');
 const full = M.riteCommand('/p/x.py', { rite: 'mass', date: '2026-09-23', votive: 'Hodie', propersOnly: false, baseUrl: 'https://d', version: 'V', lang1: 'Latin', lang2: 'English', ttl: 3600 });
 check(full.indexOf('--propers') < 0, 'full Mass keeps the Ordinary');
+// A private API of one's own replaces the base URL and carries Access headers.
+const api = M.riteCommand('/p/x.py', { rite: 'office', date: '2026-09-23', hour: 'Prima', baseUrl: 'https://mirror', apiUrl: 'https://api.example.workers.dev', apiClientId: 'id.access', apiClientSecret: 'secret', version: 'V', lang1: 'Latin', lang2: 'English', ttl: 3600 });
+check(api[api.indexOf('--api-url') + 1] === 'https://api.example.workers.dev', 'api url passed');
+check(api[api.indexOf('--access-client-id') + 1] === 'id.access', 'service token id passed');
+check(api[api.indexOf('--access-client-secret') + 1] === 'secret', 'service token secret passed');
+check(M.riteCommand('/p/x.py', { rite: 'office', date: 'd', hour: 'Prima', baseUrl: 'https://mirror', version: 'V', lang1: 'Latin', lang2: 'English', ttl: 60 }).indexOf('--api-url') < 0, 'no api args when unset');
 check(M.RITES.length === 2 && M.MASS_FORMS.length === 2 && M.VOTIVES.length >= 10, 'rite vocabulary');
 check(M.VOTIVES[0].value === 'Hodie', 'Hodie is the Mass of the day');
 // The bar names the day's Mass: the rank the server appends is dropped and the

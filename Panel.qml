@@ -37,12 +37,18 @@ Panel {
     return value === "" ? "https://divinumofficium.hu" : value
   }
   readonly property string versionText: String(setting("version", "Rubrics 1960 - 1960"))
-  readonly property string language: String(setting("language", "Latin"))
-  readonly property string language2Raw: String(setting("language2", "English"))
+  readonly property string language: String(setting("language", "Latin"))  readonly property string language2Raw: String(setting("language2", "English"))
   // The server prints one column when both languages match, so "None" is just
   // that same request — the parser handles either shape.
   readonly property string language2: (language2Raw === "None" || language2Raw === language) ? "" : language2Raw
-  readonly property bool hideVerseNumbers: String(setting("hideVerseNumbers", "Off")) === "On"
+  // A Divinum Officium API of one's own — e.g. the stack in the project's own
+  // repository, running the engine in a Cloudflare Container behind Access.
+  // When set, it replaces the public mirror and needs no crawl delay.
+  readonly property string apiUrl: String(setting("apiUrl", "")).trim()
+  readonly property string apiClientId: String(setting("apiServiceTokenId", "")).trim()
+  readonly property string apiClientSecret: String(setting("apiServiceTokenSecret", ""))
+  readonly property string effectiveBaseUrl: apiUrl !== "" ? apiUrl : sourceUrl
+  readonly property string hideVerseNumbers: String(setting("hideVerseNumbers", "Off")) === "On"
   readonly property int refreshIntervalSec: numberSetting("refreshIntervalSec", 900, 60, 86400)
   readonly property int cacheTtlSec: numberSetting("cacheTtlMinutes", 360, 0, 10080) * 60
   readonly property var schedule: Model.parseSchedule(setting("hourSchedule", Model.DEFAULT_SCHEDULE))
@@ -83,7 +89,7 @@ Panel {
   property bool massPendingForce: false
   property string massLoadedKey: ""
   readonly property string massRequestKey: Model.massKey({
-    baseUrl: root.sourceUrl,
+    baseUrl: root.effectiveBaseUrl,
     version: root.versionText,
     lang1: root.language,
     lang2: root.language2 === "" ? root.language : root.language2,
@@ -100,7 +106,7 @@ Panel {
   readonly property string commemorations: office && office.commemorations
     ? office.commemorations.join(" · ") : ""
   readonly property var sections: office && office.sections ? office.sections : []
-  readonly property string hostLabel: hostOf(sourceUrl)
+  readonly property string hostLabel: hostOf(effectiveBaseUrl)
   readonly property bool isToday: Model.isToday(dateKey)
   readonly property bool followsClock: pinnedHour === ""
 
@@ -157,7 +163,10 @@ Panel {
       hour: root.hour,
       votive: root.massVotive,
       propersOnly: root.propersOnly,
-      baseUrl: root.sourceUrl,
+      baseUrl: root.effectiveBaseUrl,
+      apiUrl: root.apiUrl,
+      apiClientId: root.apiClientId,
+      apiClientSecret: root.apiClientSecret,
       version: root.versionText,
       lang1: root.language,
       lang2: root.language2 === "" ? root.language : root.language2,
@@ -213,7 +222,10 @@ Panel {
       date: root.dateKey,
       votive: root.massVotive,
       propersOnly: true,
-      baseUrl: root.sourceUrl,
+      baseUrl: root.effectiveBaseUrl,
+      apiUrl: root.apiUrl,
+      apiClientId: root.apiClientId,
+      apiClientSecret: root.apiClientSecret,
       version: root.versionText,
       lang1: root.language,
       lang2: root.language2 === "" ? root.language : root.language2,
@@ -307,7 +319,9 @@ Panel {
   // same settings can also arrive from the plugins settings UI or a hand edit
   // of shell.json. Watch the request itself so every path ends in fresh text.
   readonly property string requestSignature: [
-    root.sourceUrl,
+    root.effectiveBaseUrl,
+    root.apiClientId,
+    root.apiClientSecret,
     root.versionText,
     root.language,
     root.language2,

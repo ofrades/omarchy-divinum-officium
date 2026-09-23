@@ -164,6 +164,44 @@ python3 divinum_officium.py cache-path     # where offices are cached
 python3 divinum_officium.py clear-cache    # forget every saved office
 ```
 
+## Generating a dataset
+
+The reader asks a server for one hour at a time. If you would rather own the
+text — no mirror, no crawl delay, no surprise when a volunteer site moves —
+`tools/generate_slice.py` walks the Divinum Officium engine over a date range
+and writes the same JSON the reader parses, one file per office or Mass:
+
+```
+dist/api/index.json
+dist/api/office/rubrics-1960-1960/2026/09-23/prima-latin-portugues.json
+dist/api/mass/rubrics-1960-1960/2026/09-23/hodie-full-latin-portugues.json
+```
+
+It reads the engine in place, so a checkout plus Perl modules is all it needs:
+
+```bash
+# Arch: everything is packaged
+sudo pacman -S --needed perl-cgi perl-date-calc perl-algorithm-diff perl-uri \
+  perl-cgi-session perl-cpanel-json-xs perl-timedate
+
+git clone --depth 1 https://github.com/DivinumOfficium/divinum-officium ~/divinum-officium
+
+python3 tools/generate_slice.py \
+  --engine local --repo ~/divinum-officium \
+  --from 2026-01-01 --to 2026-12-31 \
+  --version "Rubrics 1960 - 1960" --lang1 Latin --lang2 Portugues \
+  --out dist/api --jobs 8
+```
+
+A running server works too — `--engine http --base-url http://127.0.0.1:8080` —
+which is the better mode when the engine lives in a container.
+
+Measured on a desktop: a month of everything (eight hours + the Mass each day,
+270 payloads) takes 5.5 seconds and 9 MB; a year is about a minute and 110 MB.
+Re-running skips finished files, so an interrupted slice resumes; `--force`
+regenerates. `--rites office` or `--hours Prima,Vesperae` narrow the slice, and
+`--propers` takes the Mass without the Ordinary.
+
 ## Tests
 
 ```bash

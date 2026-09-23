@@ -98,6 +98,24 @@ echo OK
 echo "== helper cli =="
 python3 divinum_officium.py cache-path | grep -q "divinum-officium" && echo OK
 
+echo "== slice generator =="
+python3 - <<'PY'
+import importlib.util
+
+spec = importlib.util.spec_from_file_location("generate_slice", "tools/generate_slice.py")
+gen = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(gen)
+
+assert gen.version_slug("Rubrics 1960 - 1960") == "rubrics-1960-1960", gen.version_slug("Rubrics 1960 - 1960")
+assert gen.version_slug("Divino Afflatu - 1954") == "divino-afflatu-1954"
+assert gen.version_slug("Monastic - 1963 - Barroux") == "monastic-1963-barroux"
+assert gen.RITES["mass"].endswith("missa.pl") and gen.RITES["office"].endswith("Pofficium.pl")
+hours = gen.HOURS
+assert hours[0] == "Matutinum" and hours[-1] == "Completorium" and len(hours) == 8
+print("slug:", gen.version_slug("Rubrics 1960 - 1960"), "| rites:", ",".join(sorted(gen.RITES)))
+PY
+echo OK
+
 if command -v node >/dev/null 2>&1; then
   echo "== Model.js =="
   node -e "

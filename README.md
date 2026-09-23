@@ -1,14 +1,17 @@
 # Divinum Officium for Omarchy
 
-The traditional Roman Breviary in your bar. The widget shows the canonical hour
+The traditional Roman liturgy in your bar. The widget shows the canonical hour
 being prayed now — Matutinum through Completorium — with the liturgical colour
-of the day beside it. Clicking it opens the office itself: the day's title and
-rank, the commemoration, and the full text in one or two languages, with the
-hours, the days, and the rubrical edition all one keypress away.
+of the day beside it. Clicking it opens the day's **Office**: the title and rank,
+the commemoration, and the full text in one or two languages, with the hours,
+the days, and the rubrical edition all one keypress away. The same panel reads
+the day's **Mass** too — propers, or the propers set inside the Ordinary, and
+any votive Mass from the missal.
 
-The office text comes from a **Divinum Officium** server
+The texts come from a **Divinum Officium** server
 ([DivinumOfficium/divinum-officium](https://github.com/DivinumOfficium/divinum-officium)),
-the same data and Perl engine that power divinumofficium.com.
+the same data and Perl engine that power divinumofficium.com — the breviary's
+`Pofficium.pl` for the hours and the missal's `missa.pl` for the Mass.
 
 ## Install
 
@@ -56,21 +59,44 @@ then set **Divinum Officium server** to `http://127.0.0.1:8080` in the widget's
 settings. The image is around 460 MB compressed; it serves the whole site, so
 any edition and language is available.
 
+## The Mass
+
+The panel opens on the Office. Switch it to the Mass with the **Officium /
+Missa** pills, the `m` key, or:
+
+```bash
+omarchy-shell io.github.ofrades.divinum-officium mass
+```
+
+The Mass view keeps the same day navigation, rubrics, and languages, and adds:
+
+- **Propers / Full Mass** — Propers is the day's own texts (Introit, Collect,
+  Epistle, Gospel, Offertory, Secret, Communion, Postcommunion); Full Mass sets
+  them inside the Ordinary, which is what the website shows by default.
+- **Mass** — the Mass of the day, or a votive and communal Mass: Requiem,
+  Beatae Mariae Virginis, a Martyr Pontiff, a Confessor, a Virgin Martyr,
+  Dedication, St Joseph, the Passion, for the Pope, for the spread of the faith.
+
+The bar keeps showing the hour either way: the Mass has no hour of its own.
+
 ## Settings
 
 Settings live in the widget's entry in `~/.config/omarchy/shell.json` and are
-also editable from **Setup › Plugins**. The panel's dropdowns write the same
-keys, so a choice made while reading survives a restart.
+also editable from **Setup › Plugins**. The panel's pills and dropdowns write the
+same keys, so a choice made while reading survives a restart.
 
 | Setting | Default | What it does |
 | --- | --- | --- |
 | `sourceUrl` | `https://divinumofficium.hu` | Which Divinum Officium server to read. |
+| `rite` | `Officium` | Which book the panel opens on. |
 | `version` | `Rubrics 1960 - 1960` | Rubrical edition, from Tridentine 1570 to Ordo Praedicatorum 1962. |
 | `language` | `Latin` | The left column, and the only column when the right one is off. |
-| `language2` | `English` | The right column. `None` (or the same language twice) gives a single-column office. |
+| `language2` | `English` | The right column. `None` (or the same language twice) gives a single-column text. |
+| `massForm` | `Propers` | Propers alone, or the propers inside the Ordinary of the Mass. |
+| `massVotive` | `Hodie` | The Mass of the day, or a votive code from the missal (see the panel's list). |
 | `hourSchedule` | `00:00,06:00,07:30,09:00,12:00,15:00,18:00,21:00` | Eight times, one per hour from Matins to Compline, deciding which hour the bar calls current. |
-| `refreshIntervalSec` | `900` | How often the office is re-checked while the shell runs. |
-| `cacheTtlMinutes` | `360` | How long a fetched office is reused before it is fetched again. |
+| `refreshIntervalSec` | `900` | How often the text is re-checked while the shell runs. |
+| `cacheTtlMinutes` | `360` | How long a fetched text is reused before it is fetched again. |
 | `hideVerseNumbers` | `Off` | Hide the small verse numbers psalms are pointed by. The mediant asterisks stay. |
 | `showColourDot` | `On` | Show the liturgical colour next to the hour in the bar. |
 
@@ -78,15 +104,16 @@ keys, so a choice made while reading survives a restart.
 
 | Key | Action |
 | --- | --- |
-| click | Open / close the office |
+| click | Open / close the reader |
 | right click | Refetch the current hour |
 | middle click | Jump back to the hour the clock is on |
+| `o` / `m` | Read the Office / the Mass |
 | `j` / `k` | Next / previous hour (stepping past Compline moves to the next day) |
 | `h` / `l` | Previous / next day |
-| `1`–`8` | Pick an hour directly |
+| `1`–`8` | Pick an hour directly (Office) |
 | `t` | Today, following the clock again |
 | `r` | Refetch |
-| `Return` | Advance to the next hour |
+| `Return` | Advance to the next hour (Office) |
 | `c` / `e` | Collapse / expand every section |
 | `Esc` | Close |
 
@@ -97,15 +124,19 @@ omarchy-shell io.github.ofrades.divinum-officium toggle
 omarchy-shell io.github.ofrades.divinum-officium next
 omarchy-shell io.github.ofrades.divinum-officium previousDay
 omarchy-shell io.github.ofrades.divinum-officium today
+omarchy-shell io.github.ofrades.divinum-officium mass          # the day's Mass
+omarchy-shell io.github.ofrades.divinum-officium votive C9     # a Requiem
+omarchy-shell io.github.ofrades.divinum-officium office        # back to the hours
 ```
 
 `open`, `close`, `show`, `hide`, `refresh`, `next`, `previous`, `nextDay`,
-`previousDay`, and `today` are the full set.
+`previousDay`, `today`, `rite`, `mass`, `office`, and `votive` are the full set.
 
 To reach the reader from anywhere, bind it in `~/.config/hypr/bindings.lua`:
 
 ```lua
 o.bind("SUPER + ALT + O", "Divine Office", "omarchy-shell io.github.ofrades.divinum-officium toggle")
+o.bind("SUPER + ALT + M", "Divine Mass", "omarchy-shell io.github.ofrades.divinum-officium mass")
 ```
 
 ## How it works
@@ -118,10 +149,10 @@ o.bind("SUPER + ALT + O", "Divine Office", "omarchy-shell io.github.ofrades.divi
   does not put a request on the wire for every click.
 - `Model.js` holds the pure logic: the hour schedule, the liturgical colour
   table, date arithmetic, and the RichText rendering of the office lines.
-- `divinum_officium.py` does the network side. It asks for one hour, parses the
-  server's HTML table into sections with marked-up lines, and caches the result
-  under `~/.cache/omarchy/divinum-officium/`. On a failed fetch it serves the
-  last saved office and says so in the panel.
+- `divinum_officium.py` does the network side. It asks for one hour or one Mass,
+  parses the server's HTML table into sections with marked-up lines, and caches
+  the result under `~/.cache/omarchy/divinum-officium/`. On a failed fetch it
+  serves the last saved text and says so in the panel.
 
 The colour names are the server's own, which are not what they sound like: it
 paints a white feast in `black` (it omits the colour attribute entirely) and a
@@ -156,7 +187,7 @@ manifest. No network access.
 
 ## Credits
 
-The office text, its rubrics, and the liturgical engine belong to the
+The texts, their rubrics, and the liturgical engine belong to the
 [Divinum Officium Project](https://github.com/DivinumOfficium/divinum-officium),
 released under the MIT licence. This plugin is an independent reader for it and
 is not affiliated with the project.

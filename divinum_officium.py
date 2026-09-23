@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Fetch and parse the traditional Roman Breviary from a Divinum Officium server.
+"""Fetch and parse the traditional Roman liturgy from a Divinum Officium server.
 
 Divinum Officium (https://github.com/DivinumOfficium/divinum-officium) renders
-each canonical hour as an HTML table: one row per section (Incipit, Hymnus,
-Psalmi, Capitulum, Oratio, ...), one cell per language. This helper turns that
-table into JSON the Omarchy shell plugin can draw directly, and caches it so a
-bar widget does not hammer the server.
+both books as an HTML table: one row per section (Incipit, Hymnus, Psalmi,
+Capitulum, Oratio, ... for the breviary; Introitus, Oratio, Lectio, Evangelium,
+... for the missal), one cell per language. This helper turns that table into
+JSON the Omarchy shell plugin can draw directly, and caches it so a bar widget
+does not hammer the server.
 
 Only the Python standard library is used.
 
@@ -13,6 +14,8 @@ Usage:
   divinum_officium.py office --date 2026-09-23 --hour Prima \
       --version "Rubrics 1960 - 1960" --lang1 Latin --lang2 English \
       [--base-url https://divinumofficium.hu] [--ttl 21600] [--refresh]
+  divinum_officium.py mass --date 2026-09-23 [--votive C9] [--propers] \
+      [--version "Rubrics 1960 - 1960"] [--lang1 Latin] [--lang2 English]
   divinum_officium.py clear-cache
   divinum_officium.py cache-path
 
@@ -38,6 +41,12 @@ DEFAULT_BASE_URL = "https://divinumofficium.hu"
 DEFAULT_TTL = 6 * 3600
 # robots.txt on the public mirrors asks for Crawl-delay: 10.
 CRAWL_DELAY_SECONDS = 10
+
+# The two books the server renders, and the CGI that renders each.
+RITES = {
+    "office": "/cgi-bin/horas/Pofficium.pl",
+    "mass": "/cgi-bin/missa/missa.pl",
+}
 
 HOURS = [
     "Matutinum",
@@ -112,6 +121,27 @@ def relative_date(value: str) -> str:
     if value == "yesterday":
         return (today - timedelta(days=1)).isoformat()
     return value
+
+
+def rite_params(rite: str, args: argparse.Namespace, date_iso: str) -> dict:
+    """The query string a rite needs. Kept pure so the tests can check it."""
+    params = {
+        "date1": iso_to_do_date(date_iso),
+        "version": args.version,
+        "lang1": args.lang1,
+        "lang2": args.lang2,
+        "content": "1",
+    }
+    if rite == "mass":
+        params["command"] = "pray"
+        # Unset votive means the Mass of the day; Propers=1 leaves out the
+        # Ordinary, which is how the server's own toggle works.
+        if getattr(args, "votive", "Hodie") not in ("", "Hodie"):
+            params["votive"] = args.votive
+        params["Propers"] = "1" if getattr(args, "propers", False) else "0"
+    else:
+        params["command"] = "pray" + args.hour
+    return params
 
 
 # --------------------------------------------------------------------------- #
@@ -344,8 +374,8 @@ def rate_limit(cache: str) -> None:
         handle.write(str(time.time()))
 
 
-def fetch(base_url: str, params: dict, cache: str, timeout: int = 45) -> str:
-    url = base_url.rstrip("/") + "/cgi-bin/horas/Pofficium.pl"
+def fetch(base_url: str, rite: str, params: dict, cache: str, timeout: int = 45) -> str:
+    url = base_url.rstrip("/") + RITES.get(rite, RITES["office"])
     request = urllib.request.Request(
         url + "?" + urllib.parse.urlencode(params),
         headers={
@@ -365,10 +395,20 @@ def fetch(base_url: str, params: dict, cache: str, timeout: int = 45) -> str:
 def cache_key(meta: dict) -> str:
     material = "|".join(
         str(meta.get(key, ""))
-        for key in ("baseUrl", "date", "hour", "version", "lang1", "lang2")
+        for key in (
+            "baseUrl",
+            "rite",
+            "date",
+            "hour",
+            "version",
+            "lang1",
+            "lang2",
+            "votive",
+            "propers",
+        )
     )
     digest = hashlib.sha1(material.encode("utf-8")).hexdigest()[:12]
-    return f"{meta['date']}-{meta['hour']}-{digest}.json"
+    return f"{meta['date']}-{meta['rite']}-{meta.get('hour') or meta.get('votive') or 'mass'}-{digest}.json"
 
 
 def read_cache(path: str, ttl: int) -> tuple[dict | None, bool]:
@@ -387,13 +427,17 @@ def read_cache(path: str, ttl: int) -> tuple[dict | None, bool]:
 def office(args: argparse.Namespace) -> dict:
     cache = cache_dir()
     date_iso = relative_date(args.date)
+    rite = "mass" if args.command == "mass" else "office"
     meta = {
         "baseUrl": args.base_url.rstrip("/"),
+        "rite": rite,
         "date": date_iso,
-        "hour": args.hour,
+        "hour": getattr(args, "hour", "") if rite == "office" else "",
         "version": args.version,
         "lang1": args.lang1,
         "lang2": args.lang2,
+        "votive": getattr(args, "votive", "Hodie") if rite == "mass" else "",
+        "propers": bool(getattr(args, "propers", False)) if rite == "mass" else False,
         "fetchedAt": int(time.time()),
     }
     path = os.path.join(cache, cache_key(meta))
@@ -406,16 +450,9 @@ def office(args: argparse.Namespace) -> dict:
             payload["stale"] = False
             return payload
 
-    params = {
-        "command": "pray" + args.hour,
-        "date1": iso_to_do_date(date_iso),
-        "version": args.version,
-        "lang1": args.lang1,
-        "lang2": args.lang2,
-        "content": "1",
-    }
+    params = rite_params(rite, args, date_iso)
     try:
-        document = fetch(args.base_url, params, cache)
+        document = fetch(args.base_url, rite, params, cache)
     except Exception as error:  # urllib raises a family of errors here
         payload, _ = read_cache(path, 0)
         if payload is not None:
@@ -432,16 +469,20 @@ def office(args: argparse.Namespace) -> dict:
             "ok": False,
             "error": f"{meta['baseUrl']} unreachable: {error}",
             "baseUrl": meta["baseUrl"],
+            "rite": rite,
             "date": date_iso,
-            "hour": args.hour,
+            "hour": meta["hour"],
         }
 
     payload = parse_payload(document, meta)
+    payload["rite"] = rite
+    if not payload["hourTitle"]:
+        payload["hourTitle"] = "Sancta Missa" if rite == "mass" else ""
     payload["cached"] = False
     payload["stale"] = False
     if not payload["sections"]:
         payload["ok"] = False
-        payload["error"] = "no office text in the response (unexpected page layout)"
+        payload["error"] = "no text in the response (unexpected page layout)"
     try:
         with open(path, "w") as handle:
             json.dump({"fetchedAt": time.time(), "payload": payload}, handle)
@@ -465,11 +506,30 @@ def main(argv: list[str]) -> int:
     office_parser.add_argument("--ttl", type=int, default=DEFAULT_TTL)
     office_parser.add_argument("--refresh", action="store_true")
 
+    mass_parser = sub.add_parser("mass", help="fetch the Mass of a day")
+    mass_parser.add_argument("--date", default="today")
+    mass_parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
+    mass_parser.add_argument("--version", default="Rubrics 1960 - 1960")
+    mass_parser.add_argument("--lang1", default="Latin")
+    mass_parser.add_argument("--lang2", default="English")
+    mass_parser.add_argument(
+        "--votive",
+        default="Hodie",
+        help="Missal votive code (C9 is a Requiem, C11 the B.V.M.); Hodie is the Mass of the day",
+    )
+    mass_parser.add_argument(
+        "--propers",
+        action="store_true",
+        help="propers only: leaves out the Ordinary",
+    )
+    mass_parser.add_argument("--ttl", type=int, default=DEFAULT_TTL)
+    mass_parser.add_argument("--refresh", action="store_true")
+
     sub.add_parser("clear-cache", help="remove every cached office")
     sub.add_parser("cache-path", help="print the cache directory")
 
     args = parser.parse_args(argv)
-    if args.command == "office":
+    if args.command in ("office", "mass"):
         result = office(args)
         json.dump(result, sys.stdout, ensure_ascii=False)
         sys.stdout.write("\n")

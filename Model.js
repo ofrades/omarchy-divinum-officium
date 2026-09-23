@@ -21,8 +21,7 @@ var DEFAULT_SCHEDULE = "00:00,06:00,07:30,09:00,12:00,15:00,18:00,21:00"
 
 // Every rubrical edition and language the office server knows, as published in
 // the server's own horas.dialog. Values are what Pofficium.pl expects.
-var VERSIONS = [
-  "Rubrics 1960 - 1960",
+var VERSIONS = [  "Rubrics 1960 - 1960",
   "Rubrics 1960 - 2020 USA",
   "Reduced - 1955",
   "Divino Afflatu - 1954",
@@ -59,6 +58,37 @@ var LANGUAGES = [
   { value: "Latin-Bea", label: "Latin (Pius XII psalter)" },
   { value: "Latin-gabc", label: "Latin (gabc)" },
   { value: "Polski-Newer", label: "Polski (newer)" }
+]
+
+// The two books the server renders: the breviary's hours and the missal's
+// Mass. Both come back as the same table, so the reader draws them alike.
+var RITES = [
+  { value: "office", label: "Officium" },
+  { value: "mass", label: "Missa" }
+]
+
+// How much of the Mass to read: the propers that change with the day, or the
+// propers inside the Ordinary, which is what the website shows by default.
+var MASS_FORMS = [
+  { value: "Propers", label: "Propers" },
+  { value: "Full", label: "Full Mass" }
+]
+
+// Votive and communal Masses from the missal's own votives list, values are the
+// codes missa.pl takes. "Hodie" is the Mass of the day.
+var VOTIVES = [
+  { value: "Hodie", label: "Mass of the day" },
+  { value: "C9", label: "Requiem (Defunctorum)" },
+  { value: "C11", label: "Beatae Mariae Virginis" },
+  { value: "C2", label: "Unius Martyris Pontificis (Statuit)" },
+  { value: "C4", label: "Confessoris Pontificis (Statuit)" },
+  { value: "C5", label: "Confessoris non Pontificis (Os justi)" },
+  { value: "C6", label: "Unius Virginis Martyris (Loquebar)" },
+  { value: "C8", label: "Dedicationis Ecclesiae (Terribilis)" },
+  { value: "V4", label: "De S. Joseph Sponso (Feria IV)" },
+  { value: "V6", label: "De Passione DNJC (Feria VI)" },
+  { value: "Coronatio", label: "Pro Papa" },
+  { value: "Propaganda", label: "Pro Propagatione Fidei" }
 ]
 
 // Divinum Officium names the colour of the day in the page it serves. Its
@@ -280,19 +310,26 @@ function elide(text, limit) {
   return value.slice(0, Math.max(0, max - 1)) + "…"
 }
 
-// The argv for the helper, kept here so the shell wiring and the tests agree
-// on one command shape.
-function officeCommand(helperPath, options) {
+// The argv for the helper, kept here so the shell wiring and the tests agree on
+// one command shape. The office asks for an hour; the Mass asks for a votive
+// form and whether to leave the Ordinary out.
+function riteCommand(helperPath, options) {
+  var rite = options.rite === "mass" ? "mass" : "office"
   var args = [
-    "python3", helperPath, "office",
+    "python3", helperPath, rite,
     "--date", String(options.date),
-    "--hour", String(options.hour),
     "--base-url", String(options.baseUrl),
     "--version", String(options.version),
     "--lang1", String(options.lang1),
     "--lang2", String(options.lang2),
     "--ttl", String(options.ttl)
   ]
+  if (rite === "mass") {
+    args.push("--votive", String(options.votive ? options.votive : "Hodie"))
+    if (options.propersOnly === true) args.push("--propers")
+  } else {
+    args.push("--hour", String(options.hour))
+  }
   if (options.refresh === true) args.push("--refresh")
   return args
 }
@@ -302,6 +339,9 @@ if (typeof module !== "undefined") {
     HOURS: HOURS,
     VERSIONS: VERSIONS,
     LANGUAGES: LANGUAGES,
+    RITES: RITES,
+    MASS_FORMS: MASS_FORMS,
+    VOTIVES: VOTIVES,
     COLORS: COLORS,
     DEFAULT_SCHEDULE: DEFAULT_SCHEDULE,
     parseSchedule: parseSchedule,
@@ -326,6 +366,6 @@ if (typeof module !== "undefined") {
     lineCount: lineCount,
     parseOffice: parseOffice,
     elide: elide,
-    officeCommand: officeCommand
+    riteCommand: riteCommand
   }
 }

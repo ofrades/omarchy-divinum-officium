@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "author": "ofrades",
   "license": "MIT",
-  "description": "The traditional Roman Breviary in the bar: the canonical hour for now, the liturgical colour of the day, and the full office text.",
+  "description": "The traditional Roman liturgy in the bar: the canonical hour for now, the liturgical colour of the day, and the full text of the Office and the Mass.",
   "homepage": "https://github.com/ofrades/omarchy-divinum-officium",
   "repository": "https://github.com/ofrades/omarchy-divinum-officium",
   "keywords": [
@@ -24,7 +24,7 @@
   },
   "barWidget": {
     "displayName": "Divinum Officium",
-    "description": "Canonical hour, liturgical colour, and the full office text from a Divinum Officium server.",
+    "description": "Canonical hour, liturgical colour, and the full text of the Office or the Mass from a Divinum Officium server.",
     "category": "Spirituality",
     "aliases": [
       "breviary",
@@ -40,6 +40,9 @@
       "version": "Rubrics 1960 - 1960",
       "language": "Latin",
       "language2": "English",
+      "rite": "Officium",
+      "massForm": "Propers",
+      "massVotive": "Hodie",
       "refreshIntervalSec": 900,
       "cacheTtlMinutes": 360,
       "hourSchedule": "00:00,06:00,07:30,09:00,12:00,15:00,18:00,21:00",
@@ -134,6 +137,49 @@
         ],
         "defaultValue": "English",
         "description": "The right column. Choose None, or the same language as the left column, for a single-column office."
+      },
+      {
+        "key": "rite",
+        "type": "enum",
+        "label": "Open on",
+        "options": [
+          "Officium",
+          "Missa"
+        ],
+        "defaultValue": "Officium",
+        "description": "Which book the panel opens on: the breviary's hours, or the day's Mass."
+      },
+      {
+        "key": "massForm",
+        "type": "enum",
+        "label": "Mass to show",
+        "options": [
+          "Propers",
+          "Full"
+        ],
+        "defaultValue": "Propers",
+        "description": "Propers shows the texts that change with the day; Full sets them inside the Ordinary of the Mass."
+      },
+      {
+        "key": "massVotive",
+        "type": "enum",
+        "label": "Mass",
+        "options": [
+          "Hodie",
+          "C9",
+          "C11",
+          "C2",
+          "C4",
+          "C5",
+          "C6",
+          "C8",
+          "V4",
+          "V6",
+          "Coronatio",
+          "Propaganda"
+        ],
+        "defaultValue": "Hodie",
+        "description": "The Mass of the day, or a votive Mass from the missal's list: C9 Requiem, C11 B.V.M., C2 Martyr Pontiff, C4 Confessor Pontiff, C5 Confessor, C6 Virgin Martyr, C8 Dedication, V4 St Joseph, V6 the Passion, Coronatio for the Pope, Propaganda for the spread of the faith."
       },
       {
         "key": "hourSchedule",

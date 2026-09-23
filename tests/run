@@ -60,6 +60,28 @@ assert do.parse_payload(black, {})["colorName"] == "White"
 # Date format round trip.
 assert do.iso_to_do_date("2026-09-23") == "09-23-2026"
 assert do.relative_date("today") != "today"
+
+# The two rites, and the query each one builds.
+import argparse
+
+assert do.RITES["office"].endswith("Pofficium.pl"), do.RITES
+assert do.RITES["mass"].endswith("missa.pl"), do.RITES
+
+office_args = argparse.Namespace(hour="Prima", version="Rubrics 1960 - 1960", lang1="Latin", lang2="English")
+office_params = do.rite_params("office", office_args, "2026-09-23")
+assert office_params["command"] == "prayPrima", office_params
+assert office_params["date1"] == "09-23-2026", office_params
+assert "votive" not in office_params and "Propers" not in office_params, office_params
+
+mass_args = argparse.Namespace(votive="C9", propers=True, version="Rubrics 1960 - 1960", lang1="Latin", lang2="English")
+mass_params = do.rite_params("mass", mass_args, "2026-09-23")
+assert mass_params["command"] == "pray", mass_params
+assert mass_params["votive"] == "C9" and mass_params["Propers"] == "1", mass_params
+
+hodie_args = argparse.Namespace(votive="Hodie", propers=False, version="Rubrics 1960 - 1960", lang1="Latin", lang2="English")
+hodie_params = do.rite_params("mass", hodie_args, "2026-09-23")
+assert "votive" not in hodie_params, hodie_params
+assert hodie_params["Propers"] == "0", hodie_params
 print("sections:", payload["sectionCount"], "| colour:", payload["colorName"], "| commemorations:", len(payload["commemorations"]))
 PY
 echo OK
@@ -100,8 +122,18 @@ console.assert(M.sectionLabel(sec) === 'Psalms', 'label falls through columns');
 console.assert(M.sectionNote(sec) === '{n}', 'note');
 console.assert(M.parseOffice('') === null, 'empty output');
 console.assert(M.parseOffice('{nope').ok === false, 'bad json');
-const cmd = M.officeCommand('/p/x.py', { date: '2026-09-23', hour: 'Prima', baseUrl: 'https://d', version: 'V', lang1: 'Latin', lang2: 'English', ttl: 3600, refresh: true });
-console.assert(cmd[0] === 'python3' && cmd[cmd.length - 1] === '--refresh' && cmd.indexOf('--hour') > 0, 'command shape');
+const cmd = M.riteCommand('/p/x.py', { rite: 'office', date: '2026-09-23', hour: 'Prima', baseUrl: 'https://d', version: 'V', lang1: 'Latin', lang2: 'English', ttl: 3600, refresh: true });
+console.assert(cmd[0] === 'python3' && cmd[2] === 'office', 'office subcommand');
+console.assert(cmd.indexOf('--hour') > 0 && cmd.indexOf('--votive') < 0, 'office asks for an hour only');
+console.assert(cmd[cmd.length - 1] === '--refresh', 'office refresh flag');
+const mass = M.riteCommand('/p/x.py', { rite: 'mass', date: '2026-09-23', votive: 'C9', propersOnly: true, baseUrl: 'https://d', version: 'V', lang1: 'Latin', lang2: 'English', ttl: 3600 });
+console.assert(mass[2] === 'mass' && mass.indexOf('--hour') < 0, 'mass subcommand');
+console.assert(mass[mass.indexOf('--votive') + 1] === 'C9', 'votive code');
+console.assert(mass.indexOf('--propers') > 0, 'propers only flag');
+const full = M.riteCommand('/p/x.py', { rite: 'mass', date: '2026-09-23', votive: 'Hodie', propersOnly: false, baseUrl: 'https://d', version: 'V', lang1: 'Latin', lang2: 'English', ttl: 3600 });
+console.assert(full.indexOf('--propers') < 0, 'full Mass keeps the Ordinary');
+console.assert(M.RITES.length === 2 && M.MASS_FORMS.length === 2 && M.VOTIVES.length >= 10, 'rite vocabulary');
+console.assert(M.VOTIVES[0].value === 'Hodie', 'Hodie is the Mass of the day');
 console.assert(M.hourLabel('Vesperae') === 'Vesperae' && M.hourLabel('Vesperae', 'english') === 'Vespers', 'hour labels');
 console.log('Model.js OK');
 "

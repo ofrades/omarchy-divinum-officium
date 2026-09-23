@@ -123,6 +123,18 @@ BarWidget {
     function today(): void { root.goNow() }
     function nextDay(): void { root.stepDay(1) }
     function previousDay(): void { root.stepDay(-1) }
+    function rite(name: string): void {
+      if (panelLoader.item) panelLoader.item.setRite(name)
+    }
+    function mass(): void {
+      if (panelLoader.item) panelLoader.item.showMass()
+    }
+    function office(): void {
+      if (panelLoader.item) panelLoader.item.showOffice()
+    }
+    function votive(code: string): void {
+      if (panelLoader.item) panelLoader.item.setVotive(code)
+    }
   }
 
   WidgetButton {

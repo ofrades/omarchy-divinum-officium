@@ -47,6 +47,19 @@ Panel {
   readonly property int cacheTtlSec: numberSetting("cacheTtlMinutes", 360, 0, 10080) * 60
   readonly property var schedule: Model.parseSchedule(setting("hourSchedule", Model.DEFAULT_SCHEDULE))
 
+  // Which book is open: the breviary's hours or the missal's Mass.
+  readonly property string riteRaw: String(setting("rite", "Officium"))
+  readonly property bool isMass: riteRaw === "Missa"
+  readonly property string massFormRaw: String(setting("massForm", "Propers"))
+  readonly property bool propersOnly: massFormRaw !== "Full"
+  readonly property string massVotive: String(setting("massVotive", "Hodie"))
+  readonly property string votiveLabel: {
+    for (var i = 0; i < Model.VOTIVES.length; i++) {
+      if (Model.VOTIVES[i].value === root.massVotive) return Model.VOTIVES[i].label
+    }
+    return root.massVotive
+  }
+
   // ---- state
   property string dateKey: Model.dateKey(new Date())
   property int nowMinutes: 0
@@ -119,9 +132,12 @@ Panel {
     }
     root.loading = true
     root.fetchError = ""
-    officeProcess.command = Model.officeCommand(root.helperPath, {
+    officeProcess.command = Model.riteCommand(root.helperPath, {
+      rite: root.isMass ? "mass" : "office",
       date: root.dateKey,
       hour: root.hour,
+      votive: root.massVotive,
+      propersOnly: root.propersOnly,
       baseUrl: root.sourceUrl,
       version: root.versionText,
       lang1: root.language,
@@ -219,23 +235,51 @@ Panel {
   }
 
   readonly property string coverageText: {
-    var text = Model.hourLabel(root.hour, "latin")
+    var text = root.isMass
+      ? (root.propersOnly ? "Propers" : "Full Mass") + " · " + root.votiveLabel
+      : Model.hourLabel(root.hour, "latin")
     if (root.language2 !== "") text += " · " + root.language + " + " + root.language2
     else text += " · " + root.language
     return text
   }
 
-  // The dropdowns below refetch when they change something, but the same
-  // settings can also arrive from the plugins settings UI or a hand edit of
-  // shell.json. Watch the request itself so every path ends in a fresh office.
+  // The dropdowns and pills below refetch when they change something, but the
+  // same settings can also arrive from the plugins settings UI or a hand edit
+  // of shell.json. Watch the request itself so every path ends in fresh text.
   readonly property string requestSignature: [
     root.sourceUrl,
     root.versionText,
     root.language,
-    root.language2
+    root.language2,
+    root.riteRaw,
+    root.massFormRaw,
+    root.massVotive
   ].join("|")
 
   onRequestSignatureChanged: root.refresh(false)
+
+  function setRite(name) {
+    var wanted = String(name).toLowerCase()
+    var value = wanted === "mass" || wanted === "missa" ? "Missa" : "Officium"
+    if (value !== root.riteRaw) root.applySetting("rite", value)
+  }
+
+  function showMass() {
+    setRite("mass")
+    root.open()
+  }
+
+  function showOffice() {
+    setRite("office")
+    root.open()
+  }
+
+  // Any code from the missal's votives list, for keybindings that always want
+  // the same votive Mass, e.g. votive C9 for a Requiem.
+  function setVotive(code) {
+    var value = String(code)
+    if (value !== "" && value !== root.massVotive) root.applySetting("massVotive", value)
+  }
 
   onOpenedChanged: if (opened) {
     if (panelFlick) panelFlick.contentY = 0
@@ -309,25 +353,27 @@ Panel {
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
-      blocked: versionDropdown.popupOpen || languageDropdown.popupOpen || language2Dropdown.popupOpen
+      blocked: versionDropdown.popupOpen || languageDropdown.popupOpen || language2Dropdown.popupOpen || votiveDropdown.popupOpen
       onCloseRequested: root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
       // j/k walk the hours, h/l walk the days — the axis the panel is ordered
-      // along, not the axis a scrollbar moves.
+      // along, not the axis a scrollbar moves. The Mass has no hours to walk,
+      // so there only the days move.
       onMoveRequested: function(dx, dy) {
-        if (dy !== 0) root.stepHour(dy)
+        if (dy !== 0 && !root.isMass) root.stepHour(dy)
         else if (dx !== 0) root.stepDay(dx)
       }
-      onReturnRequested: root.stepHour(1)
+      onReturnRequested: if (!root.isMass) root.stepHour(1)
       onTextKey: function(t) {
         var key = String(t).toLowerCase()
         if (key === "r") root.refresh(true)
         else if (key === "t") root.goNow()
-        else if (key === "[") root.stepDay(-1)
-        else if (key === "]") root.stepDay(1)
+        else if (key === "[" || key === "]") root.stepDay(key === "[" ? -1 : 1)
         else if (key === "c") root.setAllCollapsed(true)
         else if (key === "e") root.setAllCollapsed(false)
-        else if (key >= "1" && key <= "8") root.selectHour(Model.HOURS[parseInt(key, 10) - 1].key)
+        else if (key === "o") root.setRite("office")
+        else if (key === "m") root.setRite("mass")
+        else if (!root.isMass && key >= "1" && key <= "8") root.selectHour(Model.HOURS[parseInt(key, 10) - 1].key)
       }
 
       Flickable {
@@ -348,7 +394,7 @@ Panel {
 
           PanelHero {
             width: parent.width
-            title: root.hourLabel
+            title: root.isMass ? "Sancta Missa" : root.hourLabel
             meta: Model.longDate(root.dateKey) + (root.isToday ? " · Today" : "")
             foreground: root.foreground
             fontFamily: root.fontFamily
@@ -390,12 +436,36 @@ Panel {
             }
           }
 
+          // ---- which book: the breviary's hours, or the missal's Mass.
+          RowLayout {
+            width: parent.width
+            spacing: Style.space(4)
+
+            Repeater {
+              model: Model.RITES
+
+              delegate: Button {
+                required property var modelData
+
+                text: modelData.label
+                foreground: root.foreground
+                fontFamily: root.fontFamily
+                bordered: true
+                active: (modelData.value === "mass") === root.isMass
+                Layout.fillWidth: true
+                Layout.preferredWidth: 120
+                onClicked: root.setRite(modelData.value)
+              }
+            }
+          }
+
           // ---- the eight hours. The active one is filled; the hour the clock
           //      is pointing at carries a dot so "now" stays visible even while
           //      another hour is being read.
           RowLayout {
             width: parent.width
             spacing: Style.space(4)
+            visible: !root.isMass
 
             Repeater {
               model: Model.HOURS
@@ -416,6 +486,45 @@ Panel {
                 Layout.preferredWidth: 60
                 onClicked: root.selectHour(modelData.key)
               }
+            }
+          }
+
+          // ---- the Mass: how much of it, and which one.
+          RowLayout {
+            width: parent.width
+            spacing: Style.space(6)
+            visible: root.isMass
+
+            Repeater {
+              model: Model.MASS_FORMS
+
+              delegate: Button {
+                required property var modelData
+
+                text: modelData.label
+                tooltipText: modelData.value === "Propers"
+                  ? "The texts that change with the day"
+                  : "The propers inside the Ordinary of the Mass"
+                fontSize: Style.font.bodySmall
+                foreground: root.foreground
+                fontFamily: root.fontFamily
+                bordered: true
+                active: (modelData.value === "Full") === !root.propersOnly
+                Layout.preferredWidth: 130
+                onClicked: root.applySetting("massForm", modelData.value)
+              }
+            }
+
+            Dropdown {
+              id: votiveDropdown
+              label: "Mass"
+              value: root.massVotive
+              options: Model.VOTIVES
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              Layout.fillWidth: true
+              Layout.preferredWidth: 320
+              onChanged: function(value) { root.applySetting("massVotive", value) }
             }
           }
 
@@ -594,7 +703,7 @@ Panel {
           Text {
             width: parent.width
             textFormat: Text.PlainText
-            text: "j/k hour · h/l day · 1–8 pick an hour · t today · r refetch · c/e collapse · Esc close"
+            text: "o/m book · j/k hour · h/l day · 1–8 pick an hour · t today · r refetch · c/e collapse · Esc close"
             color: Qt.darker(root.foreground, 1.8)
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption

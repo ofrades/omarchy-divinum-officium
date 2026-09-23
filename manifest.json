@@ -50,7 +50,7 @@
       "hourSchedule": "00:00,06:00,07:30,09:00,12:00,15:00,18:00,21:00",
       "hideVerseNumbers": "Off",
       "showColourDot": "On",
-      "apiHours": "Prima,Tertia,Sexta,Nona"
+      "apiHours": ""
     },
     "schema": [
       {
@@ -166,8 +166,8 @@
         "key": "apiHours",
         "type": "string",
         "label": "API hours",
-        "defaultValue": "Prima,Tertia,Sexta,Nona",
-        "description": "Which hours to read from Your own API. The others read from the mirror until the API's assembler covers them. Empty means every hour, and a failed API always falls back for that request."
+        "defaultValue": "",
+        "description": "Which hours to read from Your own API. Empty means every hour. A failed API always falls back to the mirror for that request."
       },
       {
         "key": "rite",

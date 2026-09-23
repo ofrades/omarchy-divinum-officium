@@ -188,10 +188,10 @@ and keyed by source, so pointing back at a mirror (or clearing the settings)
 picks up the mirror's copies again. A failed API falls back to the mirror for
 that request.
 
-`apiHours` narrows which hours are read from the API — by default Prima,
-Tertia, Sexta and Nona, the four the assembler renders faithfully today. The
-others keep reading the mirror until their sections land, and the setting can
-be widened to every hour (or emptied, which means all of them) as they do. The credentials live in `shell.json`
+`apiHours` narrows which hours are read from the API; it is empty by default,
+which means every hour. It exists for the day the API is slow or partial: name
+hours there and the rest read from the mirror. A failed API always falls back
+for that request. The credentials live in `shell.json`
 (mode 600) — `apiServiceTokenSecret` is a Cloudflare Access secret, revocable
 in Zero Trust without touching anything else.
 

@@ -102,6 +102,12 @@ omarchy-shell io.github.ofrades.divinum-officium today
 `open`, `close`, `show`, `hide`, `refresh`, `next`, `previous`, `nextDay`,
 `previousDay`, and `today` are the full set.
 
+To reach the reader from anywhere, bind it in `~/.config/hypr/bindings.lua`:
+
+```lua
+o.bind("SUPER + ALT + O", "Divine Office", "omarchy-shell io.github.ofrades.divinum-officium toggle")
+```
+
 ## How it works
 
 - `BarWidget.qml` owns the bar slot and loads `Panel.qml`. It reads the hour,

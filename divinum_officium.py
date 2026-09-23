@@ -520,13 +520,22 @@ def office(args: argparse.Namespace) -> dict:
     # simply does not cover this hour yet.
     if api_serves_hour:
         try:
+            api_params = {
+                "version": args.version,
+                "lang1": args.lang1,
+                "lang2": args.lang2,
+            }
+            # The missal's own switches travel too: a votive Mass or the
+            # propers-only view is part of the question, not of the mirror.
+            if rite == "mass":
+                votive = getattr(args, "votive", "") or "Hodie"
+                if votive != "Hodie":
+                    api_params["votive"] = votive
+                if getattr(args, "propers", False):
+                    api_params["propers"] = "1"
             payload = fetch_api(
                 api_url_for(base_url, rite, date_iso, meta["hour"]),
-                {
-                    "version": args.version,
-                    "lang1": args.lang1,
-                    "lang2": args.lang2,
-                },
+                api_params,
             )
             if payload.get("ok") is True:
                 payload["cached"] = False
